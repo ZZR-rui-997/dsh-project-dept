@@ -1,0 +1,93 @@
+﻿name: project-dept
+version: 1.0.14
+description: >
+  Declarative routing for a contractor-style (承包制) project department. The two axes change the
+  audit checklist and how strict the acceptance has to be; the six-step flow and
+  the three non-negotiables stay stable across domains.
+
+always_load:
+  - static/core/principles.md
+  - static/core/workflow.md
+  - static/core/output-contract.md
+
+axes:
+  deliverable:
+    detect: |
+      Classify by what actually gets handed over, never by field or topic.
+        document - a text artefact people read to completion (docx, md, pdf, slides, report)
+        code     - something that will be executed (script, program, tool, pipeline)
+        data     - a dataset, result table, statistics, computed result set
+        model    - a geometry, mesh, simulation case, engineering drawing, or other
+                   structured/binary artefact produced by a tool
+      Multi-select only when two artefacts really are both handed over, at most two,
+      first one is primary.
+    values:
+      document: static/fragments/deliverable/document.md
+      code:     static/fragments/deliverable/code.md
+      data:     static/fragments/deliverable/data.md
+      model:    static/fragments/deliverable/model.md
+    default: document
+    multi: true
+
+  rigor:
+    detect: |
+      Classify by "what happens if this is wrong", never by effort or size.
+        exploratory - conclusion only steers the next internal decision; not cited, not published
+        standard    - enters a formal deliverable, but a mistake can still be corrected later
+        critical    - irreversible, externally published, or becomes a baseline other work checks against
+      Signals for critical: others will cite it, it will be used as an acceptance
+      baseline, it cannot be edited once released, or someone has to sign off on it.
+    values:
+      exploratory: static/fragments/rigor/exploratory.md
+      standard:    static/fragments/rigor/standard.md
+      critical:    static/fragments/rigor/critical.md
+    default: standard
+    multi: false
+
+references:
+  on_demand:
+    - condition: deciding whether a number, definition, or list may serve as a baseline, or suspecting the baseline itself is wrong
+      path: references/provenance-and-baseline.md
+    - condition: organising an independent review (how to build the blind package, how to brief the reviewer, how to sample, when and how to convene a multi-reviewer panel)
+      path: references/blind-review.md
+    - condition: deciding whether a new rule/file/check should exist at all, or running a direction pre-mortem
+      path: references/self-skepticism.md
+    - condition: choosing where something lives — skill, script, plugin, or preset
+      path: references/mechanism-choice.md
+    - condition: avoiding known failure modes, or reviewing a failure after the fact
+      path: references/anti-patterns.md
+    - condition: standing this department up in a new project
+      path: references/project-scaffold.md
+
+quality_tools:
+  gate_script: scripts/dept_gate.py
+  gate_use_when: before opening any work package, and before every progress report to the user
+  gate_output: stdout report plus exit code
+  audit_script: scripts/check_doc.py
+  audit_use_when: before closing any work package that hands over a document artefact
+  audit_output: stdout report plus exit code (add --json for machine-readable)
+  config_file: >-
+    dept.config.json — resolved by walking up from the working directory, never hardcoded.
+    If the working directory itself contains the ledger dir but the config was found in an
+    ancestor, the gate exits 3 (not 0): auditing an ancestor project's ledger would silently
+    skip this project's own open debts.
+  script_resolution: resolve relative to the loaded SKILL.md directory, never the user working directory
+  replacement_scripts: forbidden during normal runs
+  exit_codes_owner: >-
+    dept_gate.py only (the gate). check_doc.py has no exit 3: every "not run" case there is 2
+    (missing/broken config, config type mismatch, structural assertions <3, ancestor config).
+  exit_codes:
+    "0": pass
+    "1": blocked — structural problem, do not start work
+    "2": needs a decision — open debts must each be closed, exempted with a review date, or downgraded
+    "3": >-
+      not executed — dept_gate.py only: missing config file, config parse failure, config top level
+      not a JSON object, or the config was found in an ancestor while this directory has its own ledger dir
+
+agent_metadata: agents/openai.yaml — optional host-facing hint file, not part of the routing protocol
+
+missing_asset_policy: >-
+  A file declared in this manifest or SKILL.md (always_load entry, axis fragment, on_demand
+  reference, script) that does not exist is a DEFECT, not a cue to improvise: stop, report the
+  exact missing path to the user, and record it. Never silently skip it and never substitute a
+  remembered version of its contents — a declared-but-missing asset means the package is broken.

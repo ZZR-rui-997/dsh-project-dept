@@ -1,0 +1,60 @@
+{
+  "name": "dsh-project-dept",
+  "version": "1.0.1",
+  "description": "Acceptance-first project workflow for DeepSeek Harness: one board at a time, an opening gate, independent blind review, baseline self-audit, and a closed delivery loop.",
+  "type": "module",
+  "license": "MIT",
+  "author": "ZZR-rui-997",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ZZR-rui-997/dsh-project-dept.git"
+  },
+  "bugs": {
+    "url": "https://github.com/ZZR-rui-997/dsh-project-dept/issues"
+  },
+  "homepage": "https://github.com/ZZR-rui-997/dsh-project-dept#readme",
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "dsh-bundle",
+    "deepseek-harness",
+    "cordis",
+    "skill",
+    "workflow",
+    "acceptance",
+    "code-review",
+    "governance"
+  ],
+  "main": "./index.js",
+  "icon": "./icon.png",
+  "exports": {
+    ".": "./index.js",
+    "./skills/*": "./skills/*",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.png"
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "skills",
+    "tests",
+    "locale/*.json",
+    "icon.png",
+    "README.md",
+    "README.zh.md",
+    "LICENSE"
+  ],
+  "engines": {
+    "dsh": ">=0.2.2-rc.1 <0.3.0",
+    "node": ">=22.0.0"
+  },
+  "scripts": {
+    "check": "node --check index.js",
+    "test": "node tests/bundle.test.js"
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

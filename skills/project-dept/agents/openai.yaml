@@ -1,0 +1,4 @@
+interface:
+  display_name: "Project Department"
+  short_description: "Run complex work as an acceptable package with independent review"
+  default_prompt: "Use $project-dept to run this work as a department package: gate first, write the acceptance standard before starting, then deliver through L1 self-check, L2 independent review and L3 final verdict."

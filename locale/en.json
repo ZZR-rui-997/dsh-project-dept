@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Project department",
+    "description": "Runs one complex piece of work as a single reviewable board: an opening gate before any work starts, three-layer acceptance (self-check, independent blind review, final pass), an audit of the baseline itself, and no self-declared completion. Installing adds a project-dept skill that loads on phrases such as \"work this as a board\" or \"the check has to be independent\"; it ships an executable gate (dept_gate.py) and a document-consistency checker (check_doc.py)."
+  }
+}

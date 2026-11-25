@@ -11,6 +11,7 @@ Agent 会调度，但**不会判断对不对**。「我拆成四个 agent，都�
 ## 装了什么
 
 - **一个 `project-dept` skill**：用户说「按项目部开工 / 开个板块 / 组团队做这块 / 检查要独立」时加载。
+- **一个 `loop-ops` skill**：对一份已成形的交付物跑有限轮「审稿 → 修 → 复审」循环。每轮换全新审稿人（防谄媚）、状态落盘可续跑、编辑白名单防越改越偏、轮次硬上限（默认 2 轮，最多 3 轮）。它负责把硬伤修完，`project-dept` 的三层验收负责判定能不能交。
 - **开工闸门** `scripts/dept_gate.py`：退出码 `0` 通过、`1` 禁止开工、`2` 必须先由负责人逐条处置遗留债务（做掉 / 写明理由与复查日期后豁免 / 降级范围）才开工、`3` 表示闸门根本没跑，**不许当通过**。
 - **三层验收**：自检 → **由局外人独立盲审** → 终审；盲审方不得先看作者的推理过程。
 - **基准自审**：当「已知正确」的参照物本身可能过期（旧报告、上一轮审计结论、上一版文件），先审基准，再拿它当据点。
@@ -28,12 +29,12 @@ skill 由插件自己通过 `ctx.skills.register()` 注册，装包即生效，�
 
 ```bash
 # 只给某个项目
-cp -r skills/project-dept <你的项目>/.dsh/skills/
+cp -r skills/project-dept skills/loop-ops <你的项目>/.dsh/skills/
 # 或者给所有项目
-cp -r skills/project-dept ~/.dsh/skills/
+cp -r skills/project-dept skills/loop-ops ~/.dsh/skills/
 ```
 
-两条路暴露的是同一个 `project-dept`，内容完全一致；bundle 只是省掉手工复制，并随包升级。
+两条路暴露的是同样两个技能，内容完全一致；bundle 只是省掉手工复制，并随包升级。`loop-ops` 把 `project-dept` 声明为前置：循环负责把硬伤修完，`project-dept` 的三层验收负责判定能不能交。
 
 ## 怎么用
 
@@ -51,6 +52,7 @@ cp -r skills/project-dept ~/.dsh/skills/
 
 ```
 skills/project-dept/
+skills/loop-ops/
 ├── SKILL.md                 # 模型真正读的规程
 ├── manifest.yaml            # 两个轴、必读清单、按需参考
 ├── README.md / README_EN.md

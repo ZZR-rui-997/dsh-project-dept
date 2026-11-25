@@ -1,7 +1,7 @@
 {
   "name": "dsh-project-dept",
-  "version": "1.0.2",
-  "description": "Acceptance-first project workflow for DeepSeek Harness: one board at a time, an opening gate, independent blind review, baseline self-audit, and a closed delivery loop.",
+  "version": "1.0.3",
+  "description": "Acceptance-first workflow skills for DSH: project-dept runs one complex piece of work as a single reviewable board (gate, three-layer acceptance, independent review); loop-ops runs the bounded review loop that fixes a deliverable until the must-fix list is empty.",
   "type": "module",
   "license": "MIT",
   "author": "ZZR-rui-997",

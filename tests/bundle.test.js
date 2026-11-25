@@ -109,14 +109,29 @@ const ctx = {
   },
 };
 
+const declared = plugin.SKILL_NAMES.slice();
 plugin.apply(ctx);
-equal('apply registers exactly one skill', registrations.length, 1);
-const registered = registrations[0] ?? {};
-equal('registered name', registered.name, 'project-dept');
-check('registered body is the skill body', typeof registered.content === 'string' && registered.content.startsWith('# project-dept'), String(registered.content).slice(0, 20));
-check('registered description matches the file', registered.description === skill.description);
-check('registered resourceBase survives', registered.resourceBase && registered.resourceBase.path === SKILL_DIR, JSON.stringify(registered.resourceBase));
-check('registered metadata survives', registered.metadata && registered.metadata.version === '1.3.8', JSON.stringify(registered.metadata));
+equal('apply registers every declared skill', registrations.length, declared.length);
+equal('declared skills are shipped', declared.join(','), 'project-dept,loop-ops');
+for (const name of declared) {
+  const registered = registrations.find((item) => item.name === name) ?? {};
+  const dir = plugin.skillDirOf(name);
+  const definition = plugin.loadSkill(dir);
+  check(`registered skill "${name}" has a body`, typeof registered.content === 'string' && registered.content.trim().length > 200, String(registered.content || '').slice(0, 20));
+  check(`registered skill "${name}" description matches its file`, registered.description === definition.description);
+  check(`registered skill "${name}" keeps its resourceBase`, registered.resourceBase && registered.resourceBase.path === dir, JSON.stringify(registered.resourceBase));
+  check(`registered skill "${name}" carries metadata.version`, Boolean(registered.metadata && registered.metadata.version), JSON.stringify(registered.metadata));
+  const missingOwn = [...definition.content.matchAll(/(?:^|[\s`(])((?:static|references|scripts|tests|evals|agents)\/[A-Za-z0-9._/-]+|manifest\.yaml)/g)]
+    .map((match) => match[1].split(/[),。；]/)[0])
+    .filter((relative) => relative.endsWith('.md') || relative.endsWith('.py') || relative.endsWith('.json') || relative.endsWith('.yaml'))
+    .filter((relative) => !existsSync(join(dir, relative)));
+  check(`files declared by "${name}" exist in the bundle`, missingOwn.length === 0, `missing=${missingOwn.join(', ')}`);
+}
+const projectDept = registrations.find((item) => item.name === 'project-dept') ?? {};
+equal('project-dept metadata version', projectDept.metadata && projectDept.metadata.version, '1.3.8');
+const loopOps = registrations.find((item) => item.name === 'loop-ops') ?? {};
+equal('loop-ops metadata version', loopOps.metadata && loopOps.metadata.version, '1.0.0');
+check('loop-ops declares its dependency on project-dept', String(loopOps.metadata && loopOps.metadata.requires) === 'project-dept', JSON.stringify(loopOps.metadata));
 check('apply runs through ctx.effect', effects.length === 1, String(effects.length));
 
 let refused = false;
@@ -130,6 +145,8 @@ check('apply refuses to start without the registry', refused);
 const bound = plugin.__test__.DEFAULT_SKILL_DIR;
 check('default skill directory is inside the package', bound === join(ROOT, 'skills', 'project-dept'), bound);
 check('skill directory separator is native', bound.includes(sep), bound);
+check('skillDirOf resolves a bundled skill', plugin.skillDirOf('loop-ops') === join(ROOT, 'skills', 'loop-ops'), plugin.skillDirOf('loop-ops'));
+check('bundle ships the loop-ops SKILL.md', existsSync(join(ROOT, 'skills', 'loop-ops', 'SKILL.md')));
 
 // The packaged body must not drift from the SKILL.md the bundle advertises.
 const raw = readFileSync(join(SKILL_DIR, 'SKILL.md'), 'utf8');

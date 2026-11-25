@@ -11,6 +11,7 @@ Agents can schedule work; they are bad at deciding whether the work is *correct*
 ## What you get
 
 - **A `project-dept` skill** that loads when the user says things like "work this as a board", "spin up the team for this", or "the check has to be independent".
+- **A `loop-ops` skill** that runs the bounded review loop on a deliverable that already exists: fresh reviewer thread → fix the must-fix list → a second fresh thread to confirm. Two rounds by default, a hard cap, state on disk, and an edit whitelist so the loop cannot wander.
 - **An opening gate** — `scripts/dept_gate.py`. Exit `0` clears the work, `1` forbids it, `2` requires the lead to resolve every open debt item (fix, explicitly exempt with a reason and a recheck date, or downgrade the scope) before starting. Exit `3` means the gate never ran and must not be read as a pass.
 - **Three-layer acceptance** — self-check, then **L2 blind review by someone who did not build the thing**, then a final pass. The reviewer may not see the author's reasoning first.
 - **Baseline self-audit** — when the "known good" reference itself may be stale (an old report, an earlier audit note, a previous version), the baseline gets audited before it is used as truth.
@@ -28,12 +29,12 @@ If you would rather not install a bundle, copy the skill directory straight into
 
 ```bash
 # per project
-cp -r skills/project-dept <your-project>/.dsh/skills/
+cp -r skills/project-dept skills/loop-ops <your-project>/.dsh/skills/
 # or for every project
-cp -r skills/project-dept ~/.dsh/skills/
+cp -r skills/project-dept skills/loop-ops ~/.dsh/skills/
 ```
 
-Both routes expose the same `project-dept` skill with the same body; the bundle only saves you the copy and keeps it updated through package upgrades.
+Both routes expose the same two skills with the same bodies; the bundle only saves you the copy and keeps them updated through package upgrades. `loop-ops` declares `project-dept` as its prerequisite: the loop fixes a deliverable, the three-layer acceptance in `project-dept` decides whether it is done.
 
 ## Use it
 
@@ -51,6 +52,7 @@ Both routes expose the same `project-dept` skill with the same body; the bundle 
 
 ```
 skills/project-dept/
+skills/loop-ops/
 ├── SKILL.md                 # the protocol the model reads
 ├── manifest.yaml            # axes, always-load list, on-demand references
 ├── README.md / README_EN.md

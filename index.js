@@ -1,6 +1,6 @@
-// dsh-project-dept — ship the `project-dept` skill inside a bundle.
+// dsh-project-dept — ship the project-dept skills inside one bundle.
 //
-// The skill body lives at ./skills/project-dept/SKILL.md, next to this file.
+// Each skill body lives at ./skills/<name>/SKILL.md, next to this file.
 // Scanning roots is not an option for a package that must work wherever the
 // user installed it: @deepseek-ai/dsh-skill-filesystem resolves bundledSkillDir
 // against the DSH process cwd, not against this package. So the host half
@@ -14,8 +14,17 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
-export const SKILL_NAME = 'project-dept';
-const DEFAULT_SKILL_DIR = join(HERE, 'skills', SKILL_NAME);
+// Every skill this bundle carries, in registration order. Adding a skill means
+// dropping a folder under ./skills and listing its SKILL.md `name` here.
+export const SKILL_NAMES = Object.freeze(['project-dept', 'loop-ops']);
+export const SKILL_NAME = SKILL_NAMES[0];
+const SKILLS_DIR = join(HERE, 'skills');
+const DEFAULT_SKILL_DIR = join(SKILLS_DIR, SKILL_NAME);
+
+/** Directory of a bundled skill by name. */
+export function skillDirOf(name) {
+  return join(SKILLS_DIR, name);
+}
 
 /** Split `---\n…\n---\n body` into the frontmatter text and the body. */
 function splitFrontmatter(source) {
@@ -101,7 +110,7 @@ export function parseFrontmatter(front) {
   return data;
 }
 
-/** Read and validate the bundled skill. Exported so tests can drive every branch. */
+/** Read and validate one bundled skill. Exported so tests can drive every branch. */
 export function loadSkill(dir = DEFAULT_SKILL_DIR) {
   const skillDir = resolve(dir);
   const file = join(skillDir, 'SKILL.md');
@@ -110,9 +119,9 @@ export function loadSkill(dir = DEFAULT_SKILL_DIR) {
   const data = parseFrontmatter(front);
   const name = String(data.name == null ? '' : data.name).trim();
   const description = String(data.description == null ? '' : data.description).trim();
-  if (name === '') throw new Error(`project-dept: ${file} has no frontmatter name`);
-  if (description === '') throw new Error(`project-dept: ${file} has no frontmatter description`);
-  if (body.trim() === '') throw new Error(`project-dept: ${file} has no body`);
+  if (name === '') throw new Error(`dsh-project-dept: ${file} has no frontmatter name`);
+  if (description === '') throw new Error(`dsh-project-dept: ${file} has no frontmatter description`);
+  if (body.trim() === '') throw new Error(`dsh-project-dept: ${file} has no body`);
   const whenToUse = data.whenToUse === undefined || data.whenToUse === '' ? undefined : String(data.whenToUse);
   return {
     name,
@@ -127,15 +136,20 @@ export function loadSkill(dir = DEFAULT_SKILL_DIR) {
 
 export const inject = ['skills'];
 
+/** Load every skill the bundle carries, in declaration order. */
+export function loadSkills() {
+  return SKILL_NAMES.map((name) => loadSkill(skillDirOf(name)));
+}
+
 export function apply(ctx) {
   const skills = ctx.skills ?? (typeof ctx.get === 'function' ? ctx.get('skills') : undefined);
   if (skills === undefined || skills === null || typeof skills.register !== 'function') {
-    throw new Error('project-dept: the skill registry (ctx.skills) is not available, so the bundled skill cannot be registered');
+    throw new Error('dsh-project-dept: the skill registry (ctx.skills) is not available, so the bundled skills cannot be registered');
   }
-  const skill = loadSkill();
-  const register = () => skills.register(skill);
+  const definitions = loadSkills();
+  const register = () => definitions.map((definition) => skills.register(definition));
   if (typeof ctx.effect === 'function') ctx.effect(register);
   else register();
 }
 
-export const __test__ = { splitFrontmatter, parseFrontmatter, loadSkill, DEFAULT_SKILL_DIR };
+export const __test__ = { splitFrontmatter, parseFrontmatter, loadSkill, loadSkills, skillDirOf, DEFAULT_SKILL_DIR, SKILL_NAMES };

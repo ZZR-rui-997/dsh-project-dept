@@ -2,5 +2,7 @@
   "meta": {
     "title": "Project department",
     "description": "Runs one complex piece of work as a single reviewable board: an opening gate before any work starts, three-layer acceptance (self-check, independent blind review, final pass), an audit of the baseline itself, and no self-declared completion. Installing adds a project-dept skill that loads on phrases such as \"work this as a board\" or \"the check has to be independent\"; it ships an executable gate (dept_gate.py) and a document-consistency checker (check_doc.py)."
-  }
+  },
+  "meta.title": "Project department",
+  "meta.description": "Two workflow skills in one bundle. project-dept: open a board through a gate, decompose it, deliver it, and verify it with people who did not build it — the author never declares it done. loop-ops: a bounded review loop for a deliverable that already exists — fresh reviewer thread, fix the must-fix list, a second fresh thread to confirm; two rounds by default, state on disk, edit whitelist."
 }

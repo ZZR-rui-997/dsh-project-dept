@@ -18,10 +18,15 @@
     - 路径一律相对项目根，项目根 = 配置文件所在目录。
 """
 import argparse
+import hashlib
 import io
 import json
 import os
 import re
+
+# v1.3.7：作废/替代标记的唯一识别口径——方括号 token，整行任意位置，大小写不敏感。
+# 售后事故：合法表格行 `B2 | 相关长度 | [已作废] |`（无首竖线）曾 exit 0 静默放行。
+RETIRED_MARK_RE = re.compile(r"\[\s*(?:已作废|superseded)\s*\]", re.IGNORECASE)
 import sys
 
 EXIT_PASS = 0
@@ -124,11 +129,28 @@ def classify_gate(ok_structural, open_debts):
     return EXIT_PASS
 
 
+def _sha12(path):
+    """文件内容 sha256 前 12 位；文件不存在返回 MISSING。
+
+    P2（外部调研 dsh omni-router / Maat 的教训）：复核是人与人之间传文件，
+    若被验包在复核期间被改过，判决就不可复现。锚哈希让"验的是哪一版"可当场核对。
+    """
+    if not os.path.isfile(path):
+        return "MISSING"
+    try:
+        with open(path, "rb") as fh:
+            return hashlib.sha256(fh.read()).hexdigest()[:12]
+    except OSError:
+        return "UNREADABLE"
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Project department pre-start gate")
     ap.add_argument("--config", help="path to dept.config.json (default: walk up from cwd)")
     ap.add_argument("--root", default=os.getcwd(), help="where to start looking for the config")
     ap.add_argument("--quiet", action="store_true", help="only print the verdict line")
+    ap.add_argument("--json", action="store_true",
+                    help="print one final JSON line (code/verdict/anchor/counts) after the verdict")
     args = ap.parse_args(argv)
 
     cfg_path = find_config(args.root, args.config)
@@ -176,18 +198,25 @@ def main(argv=None):
     role_dir = os.path.join(ledger, cfg.get("role_dir", "岗位"))
     artefact_dir = os.path.join(ledger, cfg.get("artefact_dir", "out"))
 
+    # ---- anchor：被审快照的指纹（config + 四台账），用于复核可复现
+    _anchor_parts = ["config=%s" % _sha12(cfg_path)]
+    for _k in ("board", "flow", "register", "baseline"):
+        _anchor_parts.append("%s=%s" % (os.path.basename(files[_k]), _sha12(files[_k])))
+    anchor = " ".join(_anchor_parts)
+
     structural = True
     violations = []
     warnings = []
     ok = []
 
     def say(tag, msg):
-        if not args.quiet:
+        if not args.quiet and not args.json:
             print("  [%s] %s" % (tag, msg))
 
-    print("=" * 44)
-    print("  DEPARTMENT GATE  —  %s" % cfg.get("project_name", os.path.basename(root)))
-    print("=" * 44)
+    if not args.json and not args.quiet:
+        print("=" * 44)
+        print("  DEPARTMENT GATE  —  %s" % cfg.get("project_name", os.path.basename(root)))
+        print("=" * 44)
 
     # ---- 1 台账文件齐否（缺 = 结构性问题）
     missing = [k for k, p in files.items() if not os.path.isfile(p)]
@@ -300,6 +329,43 @@ def main(argv=None):
                 for ln, l in untraced[:3]:
                     print("        %s:%d  %s" % (os.path.basename(files["baseline"]), ln, l[:110]))
 
+    # ---- 7b 基准作废/替代必须有变更记录（P-15-9：规则要挂在强制产出物上）
+    # 判定口径（v1.3.6 明确写死，别再引入未声明的长度阈值）：
+    #   * 作废行 = 行首标记（含大小写变体）或表格单元内的标记，两种写法同口径；
+    #   * 「有记录」= 变更记录文件存在，且至少有一行非空、非 Markdown 标题的正文；
+    #   * 有作废行却没配 baseline_changelog ⇒ 结构性阻断（否则 P-15-9 可以绕过）。
+    if base_text is not None:
+        retired = []
+        for i, l in enumerate(base_text.splitlines(), 1):
+            s = l.strip()
+            # v1.3.8：唯一口径 = 正则整行搜索，**不做任何前置字面量预筛**。
+            # 售后事故：v1.3.7 在正则前留了 `"[已作废]" in s or "[superseded]" in low` 预筛，
+            # 于是 `[ 已作废 ]`、`[superseded ]`、`[　superseded　]`（括号内含空白）被预筛挡掉、静默放行，
+            # 与 README「整行任意位置匹配」的声明不符（v1.3.7 档 A 复核人实测）。
+            if RETIRED_MARK_RE.search(s):
+                retired.append((i, s))
+        if retired:
+            cl_name = cfg.get("baseline_changelog") if isinstance(cfg, dict) else None
+            if not cl_name:
+                structural = False
+                violations.append(
+                    "基准清单有 %d 条已作废/被替代条目，但 dept.config.json 没配 "
+                    "baseline_changelog —— 作废必须留记录，先配这个键（P-15-9）" % len(retired))
+            else:
+                cl_path = os.path.join(ledger, cl_name)
+                cl_text = strip_fences(read_text(cl_path) or "")
+                cl_body = [l.strip() for l in cl_text.splitlines()
+                           if l.strip() and not l.strip().startswith("#")]
+                if not cl_body:
+                    structural = False
+                    violations.append(
+                        "基准清单有 %d 条已作废/被替代基准，但 %s 不存在或只有标题 —— 作废必须写明"
+                        "旧值/新值或理由/superseded_by/哪些下游要重跑（P-15-9）"
+                        % (len(retired), cl_name))
+                else:
+                    ok.append("基准变更记录：%d 条作废/替代条目有记录（%s）"
+                              % (len(retired), cl_name))
+
     # ---- 8 方向复盘小节是否还是模板
     pre = section_lines(board_text, r"方向复盘|pre-?mortem")
     if pre:
@@ -308,7 +374,9 @@ def main(argv=None):
             warnings.append("「方向复盘」小节还是模板 —— 收口前必须填三问（见 references/self-skepticism.md）")
 
     # ---- 输出
-    if not args.quiet:
+    # --json 时 stdout 只能有 JSON：所有人类可读输出统一走 human 开关（复核人用 json 解析）
+    human = (not args.quiet) and (not args.json)
+    if human:
         for m in ok:
             say("i", m)
         for m in warnings:
@@ -316,7 +384,8 @@ def main(argv=None):
         for m in violations:
             say("x", m)
     code = classify_gate(structural, open_debts)
-    print("-" * 44)
+    if human:
+        print("-" * 44)
     # V1/P7：以前无论有没有告警都印「（有告警）」，零告警时是假话。按实际条数输出。
     verdicts = {
         EXIT_PASS: ("结论：可以开工（exit 0，%s）。"
@@ -324,7 +393,21 @@ def main(argv=None):
         EXIT_BLOCKED: "结论：禁止开工（exit 1）—— 先修结构性问题。",
         EXIT_DECISION: "结论：需先决策（exit 2）—— 逐条「做掉 / 豁免（理由+复查日期）/ 降级」后再开工。",
     }
-    print(verdicts[code])
+    if human:
+        print("  [anchor] %s" % anchor)
+        print(verdicts[code])
+    if args.json:
+        print(json.dumps({
+            "code": code,
+            "verdict": verdicts[code],
+            "anchor": anchor,
+            "config": cfg_path,
+            "warnings": len(warnings),
+            "warnings_list": warnings,
+            "violations": len(violations),
+            "violations_list": violations,
+            "open_debts": len(open_debts) if isinstance(open_debts, (list, tuple)) else open_debts,
+        }, ensure_ascii=False))
     return code
 
 

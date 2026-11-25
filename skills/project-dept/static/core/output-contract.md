@@ -56,6 +56,12 @@ Block the hand-over when:
 - author-stated limitations and reviewer criticism are mixed into one undifferentiated block;
 - an `[Own]` value is presented as if it were `[Origin]`;
 - content was invented to fill a slot;
-- the declared acceptance standard was silently changed during the work.
+- the declared acceptance standard was silently changed during the work;
+- a baseline, metric, or definition was retired or replaced, but the delivered package
+  has no **baseline changelog table** (old value, new value or reason, `superseded_by`,
+  which downstream results were re-run, and what remains un-re-run). Rule retrofitted into
+  the deliverable itself, not into a reference page: a rule that lives only in a reference
+  does not get executed (measured: v1.3.0 eval A/B, `baseline-is-wrong` rubric item on
+  retiring a wrong baseline scored 2/10 for the arm holding the full text).
 
 If a blocker cannot be resolved, downgrade to `部分` and name the exact gap. A failing tool run blocks delivery; a passing tool run does **not** prove correctness.

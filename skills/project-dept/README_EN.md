@@ -1,4 +1,4 @@
-﻿# project-dept
+# project-dept
 
 > A generic "department" protocol: treat one complex piece of work as an **acceptable package**, run it serially, and make the deliverable trustworthy through a pre-start gate, three-level acceptance with independent review, baseline self-audit, and a direction pre-mortem.
 
@@ -39,10 +39,10 @@ specialised skills.
 
 ```text
 SKILL.md                     routing: when to use + five-step protocol + boundaries
-manifest.yaml                axes (deliverable / rigor) + conditional loading + two quality tools
+manifest.yaml                axes (deliverable / rigor) + conditional loading + quality_tools (the script list)
 static/core/
   principles.md              non-negotiable stance + provenance classes [Origin]/[External]/[Own]/[None]
-  workflow.md                six-step run method (including gate exit codes)
+  workflow.md                run flow: Step 0 gate + Steps 1-6 (including exit codes)
   output-contract.md         artefact name + required sections + blocking conditions
 static/fragments/
   deliverable/{document,code,data,model}.md    loaded by delivery type
@@ -51,9 +51,12 @@ references/                  on-demand depth (baseline / blind review / self-ske
 scripts/
   dept_gate.py               pre-start gate (reads dept.config.json)
   check_doc.py               mechanical assertions for documents (eight checks)
+  check_skill.py             package self-lint (8 checks: frontmatter / versions / declared assets / forbidden names / budget / evals / completeness / manifest syntax incl. duplicate keys)
+  run_evals.py               eval runner (static schema check; judge builds blind-judge briefs; tally for paired stats; grade deprecated)
+  check_review_form.py       review-form linter (7 rules: snapshots / verdict / must-fix consistency / independence / evidence / banned phrases / a real problem)
 ```
 
-## The two scripts
+## Quality tools (the authoritative list is `quality_tools` in `manifest.yaml` - do not count them here)
 
 **`dept_gate.py`** — run before opening a package and before every report to the user. Checks
 ledger structure, the current package, undisposed debts, stray scratch scripts, role cards,
@@ -93,13 +96,68 @@ to other chapters (it is neither FAIL — other chapters do have captions, so no
 citations at all"); ④ a second **not-executed** path (parallel to ③, not the only one): this chapter has no captions
 and the body cites no figures at all ⇒ *not executed*.
 
-Both scripts use only the standard library (`check_doc.py` additionally needs `python-docx`),
-resolve paths relative to themselves or to the config, and hard-code no machine paths.
+**`check_skill.py`** — run after editing this skill package itself. Eight static checks: frontmatter
+(`name` must equal the directory name, `description` <= 1024), version consistency across four places
+(SKILL / manifest / README / README_EN), every asset declared in manifest/SKILL really exists (including
+script paths written without an extension), no entry or in-package document may mention non-distributed
+filenames, context budget (`SKILL.md` over **3,000 tokens ⇒ defect, exit 1**; `SKILL.md + always_load`
+over 9,000 only warns; **actual per-run load** also adds the largest fragment per axis: over 14,000 ⇒
+defect, over 9,000 warns), `evals.json` readability, package completeness, and `manifest.yaml`
+syntax (parsed with PyYAML when available — a broken manifest used to ship because the self-lint only
+regex-scanned it; without PyYAML a conservative heuristic flags plain-scalar continuations).
+
+```bash
+python scripts/check_skill.py --root .        # add --json for machine-readable output
+```
+
+Exit codes: `0` clean / `1` defects / `2` not executed. **The budget numbers drift with the body** —
+take them from its output instead of copying a constant from the docs.
+
+**`run_evals.py`** — run when routing or review behaviour changes, and for A/B validity checks:
+
+- `static`: validate the `evals/evals.json` schema and print a ready-to-paste grading brief per case;
+- `judge --answers <dir> --out <dir> [--seed 7]`: anonymise `<case>-<arm>-r<rep>.txt` answers into a
+  blind-judge sheet (A/B/C… shuffled, private arm map) plus a paste-ready score template;
+- `tally --out <judge-out-dir>`: paired statistics, per-rubric breakdown, Wilson 95% interval;
+- `grade`: **deprecated** — verbatim keyword grading produced 12/12 false FAILs on 12 real answers
+  (backlog P-15-8), so it must not be used as an acceptance criterion; `compare` is built on `grade`
+  and is a direction hint only.
+
+```bash
+python scripts/run_evals.py --mode static
+python scripts/run_evals.py --mode judge --answers path/to/answers --out path/to/judge-out
+python scripts/run_evals.py --mode tally --out path/to/judge-out
+```
+
+Exit codes: `static` 0 pass / 2 not run; `judge` 0 pass / 2 malformed answer directory or not run;
+`tally` 0 pass / 2 not run or a template with blanks (each blank is named); `grade` 0/1/2
+(deprecated, regression only).
+
+**`check_review_form.py`** — run it on every incoming review form. Seven structural rules: two anchor
+snapshots in §0 (if they differ, the form must say the verdict only covers the start version), exactly
+one legal verdict in §1 (`通过` / `通过但要修` / `不通过`), verdict not contradicting must-fix rows,
+independence (independent conclusion written before reading the author's self-check), a mechanical
+evidence table in §1, none of 8 banned evidence phrases ("consistent with the old version", "the author
+said", "looks reasonable", …), and at least one real problem.
+
+```bash
+python scripts/check_review_form.py review-form.md
+```
+
+Exit codes: `0` compliant / `1` defects / `2` unreadable.
+**Limit of what it proves:** it checks **traces, not behaviour** — copying the same hash twice or listing
+one trivial unrelated problem both pass. Independence and the evidence table are trace checks too: a body
+sentence admitting the author's self-check was read first still passes (only the qualifier phrase is matched),
+and any two evidence rows carrying a path or line number count. It does not replace the Lead actually reading
+the form.
+
+Both the documentation tools and the review-form linter use only the standard library, resolve paths
+relative to themselves or to the config, and hard-code no machine paths.
 
 ## Standing it up in a project
 
 See `references/project-scaffold.md`: create the `_team/` ledger, write `dept.config.json`,
-write role cards, seed the baseline register, wire the two scripts, run a smoke package.
+write role cards, seed the baseline register, wire the quality tools, run a smoke package.
 Moving to another project means repeating those seven steps; moving to another machine means
 copying `~/.dsh/skills/`.
 
@@ -135,6 +193,377 @@ requires the Lead's L3 probe (and human sign-off for critical).
 See `references/blind-review.md` § Panel review.
 
 ## Changelog
+
+### 1.3.8 (2026-11-25, one must-fix from the v1.3.7 tier-A review)
+
+The v1.3.7 tier-A reviewer (six spellings, counter-examples for non-standard spellings, 3/3 reversion
+mutations caught, 33/33 snapshot, identical `FILES 36` start/end) returned "pass with required changes"
+with one real defect left.
+
+1. **A literal pre-filter still sat in front of the regex**
+   (`marked = "[已作废]" in s or "[superseded]" in low` + `if not marked: continue`). So legal spellings
+   with whitespace inside the brackets — `[ 已作废 ]`, `[superseded ]`, `[　superseded　]` (ideographic
+   space) — were filtered out and **exited 0 silently**, contradicting the README claim of
+   "matched anywhere in the line" (the reviewer measured `RETIRED_MARK_RE.search(...) == True` while the
+   pre-filter said False).
+2. Fix: **delete the pre-filter**; the only entry is `if RETIRED_MARK_RE.search(s):`. The regex already
+   allows inner whitespace via `\s*`; the pre-filter was a second, divergent rule — two rules for one
+   thing always drift.
+3. New regression test: the three inner-whitespace spellings, each with a marker and no changelog, must
+   exit 1.
+4. Version -> **1.3.8**; tests **172 -> 173**.
+
+**Evidence**: `unittest` **173 OK**; `check_skill` **8/8 exit 0**; `run_evals --mode static` exit 0;
+mutation: re-adding the pre-filter turns all three sub-cases red (`failures=3`).
+
+**Honest limits**: only the two bracketed spellings are recognised (`【已作废】`/`（作废）` are not —
+measured and stated); markers are hand-written; recognising a marker says nothing about the content of
+the changelog.
+
+### 1.3.7 (2026-11-25, one must-fix from the v1.3.6 tier-A review + an honest limitation)
+
+The tier-A reviewer (14 self-written fixtures, 3/3 reversion mutations caught, 36/36 snapshot match)
+returned "pass with required changes" with one real defect left.
+
+1. **Retired markers were only recognised at line start or after a leading table pipe** (measured:
+   the legal table row `B2 | 相关长度 | [已作废] |` has no leading pipe, so the gate exited 0 silently).
+   Now there is a single rule: the regex `\[\s*(?:已作废|superseded)\s*\]` (case-insensitive) is
+   searched **anywhere in the line** — line start, `- ` bullets, `1. ` ordered lists and any table
+   cell are all recognised.
+2. **Limitation rewritten honestly**: it previously listed only `【已作废】`-style spellings, while
+   `- `/`> `/`1. ` forms were also missed at the time. Those three forms are now covered; the
+   remaining limit is that only the two bracketed spellings are recognised (`【已作废】`, `（作废）`,
+   `废弃` are still invisible).
+3. Removed one **dead variable** in `tests/test_dept_gate_baseline.py` (reviewer F3).
+4. Added 3 regression tests: table cell without leading pipe / `- ` bullet / `1. ` ordered list.
+5. Version -> **1.3.7**; tests **169 -> 172**.
+
+**Evidence**: `unittest` **172 OK**; `check_skill` **8/8 exit 0**; `run_evals --mode static` exit 0;
+mutation: reverting to `startswith` turns the no-leading-pipe table test red (exactly the reviewer's case).
+
+**Honest limits**: only two bracketed spellings; markers are hand-written (a misspelling or a marker
+wrapped in Chinese quotes escapes); recognising a marker says nothing about whether the changelog
+content is correct.
+
+### 1.3.6 (2026-11-25, three must-fix items from the v1.3.5 tier-B review + one written claim)
+
+Both tier-B reviewers (different methods, mutually blind, 33/33 snapshot match) returned
+"pass with required changes". Fixing those four items is v1.3.6.
+
+1. Check 7b used an **undeclared ">= 40 chars" threshold instead of "non-empty"** (reviewer measured:
+   a complete 38-character record was rejected with a misleading "missing or empty"). Now the rule is
+   explicit: the changelog exists and contains at least one non-empty, non-heading line. No length
+   threshold anywhere.
+2. **Case-sensitive line-start markers** (`[Superseded]` slipped through with exit 0, while the table
+   path was case-insensitive) — both paths now compare on `lower()`.
+3. **A retired row with no `baseline_changelog` key only warned** (P-15-9 was bypassable) — now a
+   structural block (exit 1) telling the project to add the key first.
+4. The README claim "`must_include` unchanged" could not be checked from the package — rewritten to
+   say the author-side diff against the v1.3.4 blind-review package's `evals.json` showed 7/7
+   identical fields, **and that the baseline is not distributed, so the claim cannot be re-checked
+   externally**.
+5. Version -> **1.3.6**; tests 166 -> **169** (short complete record passes / uppercase marker blocked
+   / retired row without config key blocked).
+
+**Evidence**: `unittest` 169 OK; `check_skill` 8/8 exit 0; `run_evals --mode static` exit 0;
+3/3 mutations caught (revert to `len < 40` -> short-record test red; restore case sensitivity ->
+uppercase test red; revert to warning-only -> missing-key test red).
+
+**Honest limits**: (a) "has a record" only proves the file has body text, not that the old/new values
+or `superseded_by` are right; (b) only the two bracketed spellings are recognised, so `【已作废】` or `（作废）` still escape; (c) item 4 fixes the *checkability of a claim*, not the claim itself —
+"7/7 identical" still rests on author-side evidence only.
+
+### 1.3.5 (2026-11-25, P-15-9: attach the rule to a mandatory artefact + eval-owned rubric)
+
+**Why**: in the v1.3.0 A/B (n=15, with 81.7% vs without 47.5%) one item stood out — on
+`baseline-is-wrong`, the "mark superseded, never delete the old row" rubric item scored **4/20**
+across both arms (the arm holding the full text still only 2/10), while the two items that have a
+concrete artefact (review form, final-verification record) scored **10/10** on the same arm.
+Lesson: **a rule that lives only in a reference page, with no artefact attached, does not get
+executed.**
+
+1. `static/core/output-contract.md`: new hard rule — when a baseline / metric / definition is
+   retired or replaced, the delivered package must carry a **baseline changelog table** (old value,
+   new value or reason, `superseded_by`, which downstream results were re-run and which were not);
+   otherwise it is a blocker. The rule is attached to the deliverable, not to a reference.
+2. `scripts/dept_gate.py`: new check 7b — if the baseline list carries `[已作废]` / `[superseded]`
+   rows, the file named by `dept.config.json` → `baseline_changelog` must exist and be non-empty,
+   otherwise the gate is structurally blocked (exit 1); with no retired rows the file is not
+   required and nothing is falsely flagged. New config key `baseline_changelog`.
+3. `static/core/workflow.md` Step 6: close-out must reconcile the baseline changelog.
+4. `evals/evals.json`: every one of the 7 cases now carries `rubric` (4 semantic items).
+   `build_rubric()` already preferred an explicit rubric; the data simply never had one.
+   On the author side the old and new `evals.json` were diffed field by field against the
+   v1.3.4 blind-review package: `prompt` / `expected_output` / `budget_hint` / `must_include` /
+   `must_exclude` / `axes` / `steps` are identical for 7/7 cases. **That baseline is not
+   distributed with this package, so the claim cannot be re-checked from the package alone.**
+5. `scripts/run_evals.py`: static validation for `rubric` — exactly 4 items, non-empty, >= 8 chars,
+   and **not copied verbatim from `expected_output`**.
+6. Project side: the review-form template gains a per-artefact sha256 section; the project baseline
+   list gains the retirement notation; a baseline changelog file was created with 8 back-filled
+   historical retirements.
+
+**Evidence**: `unittest` 166 OK; `check_skill` 8/8 exit 0; `run_evals --mode static` exit 0;
+3/3 mutations caught (disabling 7b turns 3 tests red; removing rubric validation turns 2 red;
+ignoring the explicit rubric turns 1 red).
+
+**Honest limits**: (a) 7b only proves the changelog file exists and is non-empty, not that its
+values are right; (b) the retirement marker is hand-written, so a typo escapes detection;
+(c) rubrics are author-written and their portability across models/judges is untested
+(P-15-11 / P-15-12 remain backlog); (d) the 8 back-filled entries are a reconstruction, and several
+"downstream not re-run" rows are genuine debt rather than completed work.
+
+### 1.3.4 (2026-11-25: one must-fix from the tier-A audit, same rule again)
+
+The tier-A audit of v1.3.3 was "pass with must-fix": A1-A5 all held (six fixture verdicts correct, three mutations
+reddening 1/2/1 tests, 157 tests green, 8/8 self-checks exit 0, versions aligned, snapshot 32/32, and all four
+README self-claims verified). Only one item remained: **stacked markers defeat the hint detection**.
+
+1. **Must-fix (a new false pass)**: `> **hint**: ...`, `>**hint**`, `( **hint** )`, `> - **hint**`, `> **note**`
+   all exited 0 in v1.3.3 (they exited 1 under v1.3.2), because v1.3.3 stripped only one layer of markers. Now
+   `_strip_lead_markers()` loops until stable (quote marker, parentheses, list markers, emphasis, quotes).
+
+Unit tests **157 -> 159**, adding two **table-driven** cases: `test_hint_forms_are_not_independence` (10 template
+trace spellings including the stacked forms) and `test_legit_forms_are_independence` (5 legitimate spellings including
+`> I wrote ...`, `> **I wrote ...**`, `- **independence**: ...`). Table-driving is the deliberate fix for the pattern of
+the previous two rounds (patch one case, get broken by another spelling next round).
+Mutation: reverting the loop to a single strip reddens `test_hint_forms_are_not_independence`.
+
+### 1.3.3 (2026-11-25: one must-fix plus one leftover suggestion from the tier-A audit, same rule)
+
+The tier-A audit of v1.3.2 was "pass with must-fix": A1-A5 all held under independent fixtures (three legitimate
+declaration styles exited 0, three template traces exited 1, the reported line was body line 27 rather than the
+heading, three revert mutations each turned a test red, 154 tests / 8 self-checks / versions aligned / snapshot 32/32).
+Only one minor must-fix and one suggestion remained.
+
+1. **Must-fix (false defect)**: treating every line starting with `>` / `(` / the fullwidth `（` as a template trace was
+   too broad - a legitimate declaration written as `> I wrote the conclusion first ...` or `- (1) I ...` was dropped
+   and then reported as a defect. Now the marker is stripped first and only a line that **then starts with a hint word**
+   counts as a template trace.
+2. **Leftover suggestion**: the hint list lacked the word for "hint/tip", so a skeleton line like `- Tip: write the
+   conclusion before opening the self-check` passed as evidence. Added.
+
+Unit tests **154 -> 157**, with 3 new regressions (parenthesised declaration, blockquote declaration, bullet hint label),
+plus 3 revert mutations: M1 (unconditional skip for `>`/`(` lines) reddens the blockquote case; M2 (drop the hint word)
+reddens both hint-line cases; M3 (report the first line containing "self-check") reddens the line-number case.
+
+**Honest note**: M1 only reddens 1 of the 3 new cases - the `- (1) I ...` case goes through the bullet branch and never
+reaches that rule. So the new cases do **not** discriminate uniformly; recorded here so that "some mutations went red"
+is not mistaken for "all mutations went red".
+
+### 1.3.2 (2026-11-25: two must-fix items from the tier-A audit, both in the independence rule of `check_review_form.py`)
+
+The tier-A audit of v1.3.1 was "pass with must-fix" (all 10 required checks met, 4 revert mutations each turned the
+corresponding test red); only two minor items remained, both introduced by my own previous patch.
+
+1. **False defect**: the skip-hint rule applied to *any* body line, so a legitimate independence statement that merely
+   mentioned a word like "requirement" or "note" was skipped as a template line and then reported as missing its
+   qualifier. Now template traces are recognised **only by line-start shape** (headings, `>` quotes, parenthesised
+   hints, lines starting with a hint word; bullet markers are stripped first), so words in mid-sentence do not matter.
+2. **Wrong line reported**: on failure the checker quoted the first line containing the word "self-check", which could
+   be the skipped heading. It now reports the **first real body candidate**, falling back only if there is none.
+
+Unit tests **150 -> 154**, with 4 new regressions (a sentence that contains a hint word must pass; a template label
+line must not count; a blockquote hint line must not count; the reported line number must point at the body line,
+not the heading), plus 3 revert mutations to prove each fix is load-bearing.
+
+### 1.3.1 (2026-11-25: five must-fix items from the tier-B panel - all documentation-level)
+
+**Context**: in the v1.3.0 tier-B panel the declaration-consistency reviewer (`verify-c2-decl130`) returned
+**not passed**: behaviour and regressions were fine (8/8 self-lint, 146 unit tests, 32/32 snapshot match), and
+every problem was documentation claiming something the artefact does not do - this package's oldest failure mode.
+
+1. `README_EN.md`'s `check_skill.py` section still said "Seven static checks" and omitted check #8 => now "eight"
+   plus the manifest-syntax item.
+2. Neither language documented exit codes for `run_evals.py`, while the changelog claimed all five scripts had
+   runnable usage and exit codes => exit codes added for all four modes.
+3. The **1.1.0** entry in `README_EN.md` said "eight static checks" (it was seven then) => corrected to
+   "seven ... (an eighth came in 1.3.0)"; historical entries must keep history.
+4. `references/project-scaffold.md` still recommended `grade`/`compare` => now recommends `static`/`judge`/`tally`
+   and states that `grade` is deprecated and must not be an acceptance criterion.
+5. The docstrings of `check_skill.py` and `tests/test_check_skill.py` still said "7 checks" => 8.
+
+6. The behavioural reviewer in the same panel (`verify-c1-behavior`, verdict "pass with must-fix") found three
+   rules that **claimed more than they enforced**; all three are tightened, each with a regression test:
+   (a) `check_review_form.py` independence no longer accepts **template headings** ("written before opening the
+   author's self-check" ships in the template itself, so it passed for free); (b) the mechanical-evidence rule now
+   requires **at least 2** real rows in the "recompute / rerun / recheck" table (placeholder rows containing `<`
+   and rows from the problem table do not count); (c) `check_skill.py` check #8 now flags **duplicate top-level
+   keys** (PyYAML silently lets the later one win).
+7. `run_evals.py --mode tally` now **scans every case before reporting blanks**: the old code raised on the first
+   case, so blanks in later cases were never named. Unit tests **146 -> 150**, with 4 mutations proving each fix
+   fails when reverted.
+
+**Why a separate version for prose**: none of the five changes behaviour, but a wrong claim in the protocol layer
+makes humans and agents follow the wrong rule - and "declaration vs artefact mismatch" is the single most
+repeated failure across this package's thirteen review rounds, so prose gets fixed, versioned and re-reviewed.
+
+**Honest notes**: the reviewer also flagged that this round's blind package `验收标准.md` said "30 files" while the
+snapshot has 32 (author typo, not a package defect); and recorded that the "proves traces, not behaviour" caveat on
+`check_review_form.py` is **honest** - using its own self-declared cheat (copy the same hash twice plus one typo)
+produced a form that passes, i.e. the hole is reproducible rather than hidden.
+
+### 1.3.0 (2026-11-25: three new mechanical checks + one effectiveness experiment)
+
+**New or changed behaviour**
+
+1. **`scripts/check_review_form.py` (new, P-15-4)** — review forms stop being free text: 7 structural
+   rules (§0 two anchor snapshots, one legal verdict in §1, verdict not contradicting must-fix rows,
+   independence written before reading the author's self-check, a mechanical evidence table in §1,
+   8 banned evidence phrases, at least one real problem), 23 tests, and 8 mutation runs that each flip
+   the corresponding rule and make its test fail. **Why**: the anchor hash was in the template but nobody
+   checked it — and it proves *traces*, not *behaviour*, which is now stated in the README too.
+2. **`run_evals.py` gains `judge` / `tally`; `grade` is DEPRECATED (P-15-8)** — verbatim keyword scoring
+   produced **12/12 false FAILs** on 12 real answers (the two arms were indistinguishable). `judge`
+   anonymises `<case>-<arm>-r<rep>.txt` answers into a blind-judge sheet (random A/B/C… labels, private
+   arm map, paste-ready template); `tally` reports paired wins, per-rubric breakdown and a Wilson 95%
+   interval. **Why**: the old judge rewarded copying words out of `expected_output` and rejected correct
+   answers phrased differently — the "a weak judge can fail correct responses wholesale" failure mode.
+3. **`check_skill.py` no longer silently skips non-UTF-8 documents (P-15-5)** — a read failure is now a
+   **defect** (GBK / UTF-16 `.md` files used to escape the stale-wording and forbidden-name scans).
+   3 regression tests plus mutation proof.
+4. **Docs (P-15-6 / P-15-7)** — the quality-tools section now documents all five scripts with runnable
+   commands and exit codes; prose no longer contains a bare decode literal that grep confuses with a
+   command example.
+5. **`check_skill.py` check #8, "manifest syntax" (P-15-10)** — this package's own `manifest.yaml` had
+   been **invalid YAML since v1.2.x** (`skill_lint_output` was a plain scalar whose continuation line
+   carried a `key: value`-shaped note), and the self-lint only regex-scanned the manifest, so it
+   **never parsed it**; the defect shipped across several version numbers. Check #8 now runs
+   `yaml.safe_load` when PyYAML is available and reports the parser's own message; without PyYAML it
+   degrades to a conservative heuristic (parent is a plain scalar while a deeper line looks like
+   `key: value`). Both paths have regression tests and a mutation self-proof.
+   **Why**: this is the second time we wrote broken YAML, and the previous time was also caught only by
+   an external reviewer — a tool that does not parse cannot be said to check.
+
+**Evidence, not promises**
+
+- **P-15-2 expanded to n=15** (3 cases × 2 arms × 5 reps × 2 blind judges): with **98/120 = 81.7%** vs
+  without **57/120 = 47.5%**, **+34.2 pp**, paired **11 wins / 4 ties / 0 losses**, Wilson 95%
+  **CI [48%, 89%]**. **Read together with**: the same rubric at n=6 gave **+60.4 pp** back then ⇒
+  **small samples overestimate**; both numbers are reported.
+- Gains concentrate in **structural** items (L2 reviewer must not be the author 10 vs 5; Lead re-checks at
+  L3 10 vs 6; mechanism-choice R2/R3 9–10 vs 0), while items the base model already handles ("do not
+  self-mark complete") are 10/10 in both arms.
+- **Newly exposed weakness (backlog P-15-9)**: for `baseline-is-wrong`, R3 (stop downstream + file a debt)
+  totals 6/20 across arms and R4 (mark superseded, never delete) totals **4/20**; the with-arm still only
+  scores 2/10 with the whole skill loaded ⇒ **rules that live only in `references/` and hang on no mandatory
+  artefact are not reliably executed by an agent**.
+
+**Honest limitations (not solved in this version)**
+
+- `grade` is only marked deprecated; the code is still there, and `compare` still builds on it (direction
+  hint only).
+- The 7 cases in `evals/evals.json` **still have no `rubric` field**, so `judge` derives points from
+  `must_include` and the rubric stays keyword-ish; encoding the four semantic criteria from P-15-2 into
+  `evals.json` is what would make it real.
+- `judge` has no fill-in wizard (judges edit the template), and `tally` stops at a Wilson interval
+  (no McNemar / bootstrap / multiple-comparison correction).
+- Token estimation is still not calibrated against a real tokenizer (no tiktoken/transformers on this machine).
+- All of the above is **author-side self-testing plus one expanded experiment**; v1.3.0 has not been
+  independently reviewed yet.
+
+### 1.2.2 (2026-11-25: the 3 must-fix items from the tier-A incremental review)
+
+The tier-A review of v1.2.1 returned "fail", with 3 must-fix items - all of the same class: a rule or a claim that
+only holds in one place.
+
+1. **A rule that only covered the three entry docs**: the stale-count check scanned `README.md` / `README_EN.md` /
+   `SKILL.md` only, so the same old wording in `references/project-scaffold.md:85` escaped it and the real package
+   still exited 0. A rule that is not "everywhere" is worth nothing => it now scans **every `.md` in the package**,
+   plus a test that plants the old wording under `references/` and requires it to be caught. That scaffolding section
+   now says "wire every script listed in `quality_tools`" (gate / checker / self-lint / eval runner).
+2. **The structure tree listed only 2 scripts**: `scripts/` trees now include `check_skill.py` and `run_evals.py`.
+3. **Token numbers had two bases (off by 1)**: the documented command used `encoding='utf-8'` while
+   `check_skill.read_text()` uses `utf-8-sig`; the BOM made them differ (1732 vs 1731). The command now says
+   `utf-8-sig`, and the current numbers are stated as **1,731** / per-run **6,041**, both taken from `check_skill.py`.
+
+**Process defect (recorded honestly)**: the author edited the package **during** this review (fixing the reproducible
+numbers and rebuilding the snapshot), and the reviewer called it out. Lesson: once a package is frozen for review it
+must not be touched; change it and you void the round, rebuild the package and re-review. This is now a rule.
+
+### 1.2.1 (2026-11-25: the 4 must-fix items from the tier-B panel - each turned into a machine check)
+
+The v1.2.0 tier-B panel (two reviewers, different methods) both returned "pass but must fix": 4 must-fix + 2 observations.
+This release does not just reword the docs:
+
+1. **Stale count (R1-F1)**: README still carried a stale count (implying only 2 tools) while `scripts/` has 4. Docs now
+   point at `manifest.yaml`'s `quality_tools` instead of counting, and a lint check flags the old "only two of them" wording
+   whenever the declared script count is not 2. That check is a **literal** scan, so the docs must not contain those phrases
+   either - including when explaining the rule (paraphrase if you need to refer to it).
+2. **Unreproducible token numbers (R1-F2 / R2-1)**: "4,563 -> 1,600-1,700" replaced by the package estimator's reproducible
+   **4,935 -> 1,718** (the value right after the v1.2.0 trim; after the v1.2.2 wording tweaks it is **1,731**), with the
+   command to reproduce it.
+3. **Budget limit was dodgeable (R2-2)**: `CJK_RANGES` missed kana (0x3040-30FF), hangul (0xAC00-D7A3), emoji
+   (0x1F300-1FAFF) and extension B (0x20000-2A6DF); padding with those was estimated at 3.5 chars/token and slipped under 3,000.
+4. **Fragments were outside the budget (R2-3)**: it only counted `SKILL.md + always_load`. Now a "per-run actual load"
+   includes the largest fragment per axis: warn 9,000 / hard defect 14,000 (v1.2.2 measurement: 6,041; +595 deliverable / +754 rigor - **take the number from `check_skill.py` output**, it drifts with the body).
+   A missing fragment is a defect too.
+5. **Extension-less declarations escaped validation (R2-4)**: a declaration like `scripts/check_skill` was never checked,
+   contradicting the manifest's "declared missing = DEFECT". `always_load` and `quality_tools` are now resolved against the tree.
+6. **Two wording/naming inconsistencies (observations)**: "the changelog exists only once" while two language copies were
+   listed; and "six-step" while the flow actually has Step 0-6. Both aligned.
+7. **Tests**: 4 new regression tests (CJK ranges, fragment bloat, extension-less declarations, stale counts) - and, per our
+   freeze rule, reverting any of these fixes must make them fail.
+
+**Honest limits**: see 1.2.0 - still an estimate, never compared with a real tokenizer.
+
+### 1.2.0 (2026-11-25: entry body cut to ~1/3; the context budget becomes a hard limit)
+
+**Why**: `SKILL.md` is the fully-loaded entry point, and its body had grown to ~**4,935 tokens** (the package's own `estimate_tokens()`; the hard limit back then was 5,000) -
+of which ~**2.9K tokens were a changelog table duplicated line-for-line from `README.md`**.
+Keeping one history in two places guarantees drift (this is exactly our own "a second copy rots" anti-pattern),
+and it crowds out the context budget available for real work: 64% of the entry budget was history.
+
+**What changed**:
+1. **The changelog table is gone from `SKILL.md`**; only a short "where the changelog lives" section remains
+   (pointing at README / README_EN) plus one hard rule: do not write change details back into the entry body.
+   History is not an execution input; the entry keeps routing and non-negotiables only.
+   **Measured (v1.2.0, at the time)**: `SKILL.md` 4,935 -> **1,718 tokens** (same `estimate_tokens()` basis;
+   after the v1.2.2 tweaks it is **1,731** - take the number from the command). Reproduce with
+   `python -c "import sys;sys.path.insert(0,'scripts');import check_skill as c;print(c.estimate_tokens(open('SKILL.md',encoding='utf-8-sig').read()))"` -
+   **use `utf-8-sig`**, the same basis as `check_skill.read_text()`; with plain `utf-8` the BOM makes it differ by 1),
+   `SKILL.md + always_load` ~**4,664 tokens**.
+2. **The context budget is now a hard check**: in `check_skill.py`, `SKILL.md` over **3,000 tokens** is a **defect (exit 1)**,
+   no longer a `[!]` warning; `SKILL.md + always_load <= 9,000` stays a warning (it varies with project-side always_load,
+   so it is unsuitable as a hard gate). The error text says what to do: "sink details into references/ or README.md".
+3. Tests updated: the old "over budget only warns, exit 0" case became "**over the hard limit => exit 1**",
+   plus assertions that `--json` reports `budget.skill_md_limit == 3000` and `ok == false`.
+
+**Honest limits**:
+- Tokens are still **estimated** (CJK char ~1 token, otherwise 3.5 chars/token; since 1.2.1 the CJK ranges also
+  cover kana / hangul / emoji / extension-B, which previously could be used to dodge the limit). It has **not** been
+  compared against a real tokenizer (no tiktoken/transformers on this machine), so it is only comparable within itself;
+  the 3,000 line is defined in that estimator, so the headroom shifts with a real tokenizer.
+- An agent that reads only `SKILL.md` no longer sees version history - a **deliberate** trade-off: history does not
+  drive execution, and README is reachable inside the same package (not a dead reference).
+- The hard limit turns "I want to add one more paragraph to the entry" into exit 1; the mitigation is to put it in
+  `references/` and leave a one-line pointer. That is the design intent, not a bug.
+
+### 1.1.1 (2026-11-25: two must-fix items from the tier-A review, plus two untrue self-descriptions)
+
+The 1.1.0 snapshot was handed to one independent reviewer under the **tier-A incremental review** and was **rejected** (4 must-fix items). All four are fixed here; **no scoring rule changed** - only the output contract and the prose:
+
+1. **`check_skill.py` gains `--allow-dirname-mismatch`** - "frontmatter `name` must equal the directory name" is a hard Agent Skills requirement, but it misfires whenever the package is copied elsewhere (e.g. a review bundle named `skill\`). It stays a **defect by default** (the shipped package must match); the flag downgrades it to a warning. **Why**: a reviewer running the baseline against a renamed copy got exit 1 with zero real defects.
+2. **`dept_gate.py --json` now emits pure JSON** - it used to print the `[anchor]` line, a separator and the human verdict as well, so only the last line parsed. **Why**: if a machine interface says "JSON only", it must be JSON only.
+3. **Duplicate top-level headings merged** in both READMEs (`## 变更记录` / `## Changelog` each appeared twice) - an artefact of inserting the 1.1.0 block.
+4. **Documented that the budget check only warns** - the 1.1.0 entry described the check but not that exceeding it still exits 0 (measured behaviour: warning + exit 0).
+
+**Honest limits**: `--allow-dirname-mismatch` could be abused as a permanent "skip the name check" switch; mitigation is that it downgrades only that one item and leaves a visible `[!]` trail. The other four limits are as in 1.1.0.
+
+### 1.1.0 (2026-11-25: four mechanism gaps closed; machine self-check for "claims vs artefacts")
+
+Based on a survey of comparable projects (DSH plugin market, Claude ecosystem, Agent Skills spec, and counter-evidence on multi-agent systems), only gaps that map to a **real incident** were closed. No new roles, no fourth log:
+
+1. **`scripts/check_skill.py` (new)** - seven static checks at that time (an eighth, manifest syntax,
+   came in 1.3.0): frontmatter (`name` must equal the directory name, `description` <= 1024), **version consistency across four places** (SKILL / manifest / README / README_EN), every asset declared in manifest/SKILL actually exists, entry documents must not mention non-distributed filenames (author-side verification record, fix-progress log, project board, delivery register), context budget (SKILL body <= 5000 tokens, SKILL + always_load <= 9000; **over-budget only warns, never blocks - exit stays 0**), `evals.json` readability, package completeness. **Why**: the same dead reference shipped twice, the version drifted three times, and one declared asset did not exist - all mechanical checks that human eyes miss.
+2. **Snapshot anchor** - `dept_gate.py` now prints an `[anchor]` line and accepts `--json`; the value is the first 12 hex chars of sha256 over the config plus the four ledgers. The review template gains a "snapshot anchor (recorded before and after the review)" field. **Why**: during round 5 a reviewer's package was edited mid-review; with an anchor that is caught on the spot.
+3. **`evals/` turned from dead data into runnable checks** - each case gains `assertions{must_include, must_exclude, axes, steps}`; `scripts/run_evals.py` provides `static` (schema + judge prompt), `grade` (deterministic assertion scoring) and `compare` (with-vs-without directories, with a small-N warning). **Why**: the author-side verification record admitted "7 static cases, no runner" - i.e. no eval at all.
+4. **Two new procedures** (project-side `_team\工作流.md` sections 4.13 / 4.14) - **pre-execution plan review** (when rigor=critical, planned machine time > 8 h, or the user asks; one read-only reviewer covers method, evidence/acceptance and downstream blast radius, then returns go / no-go / go-after-fixes, <= 3M tokens) and the **twice rule** (after two consecutive failures of the same approach, switch path and say why; never resend a third time).
+
+**Deliberately not adopted** (rejected via the three optimisation questions): append-only event log, capability/bandit routing, 12-role pipeline, full panel for every task, "more homogeneous judges = more reliable".
+
+**Honest limits**: token budget is an estimate (+-10-15% vs a real tokenizer); version detection takes the highest semver in each README (heuristic); keyword scoring cannot judge paraphrases and misfires when a forbidden phrase appears inside a negation; `compare` is directional (N=7, single grading), **not** an equivalence proof; an anchor proves files did not change, not that the change was right.
+
 ### 1.0.14 (2026-11-22, tests only, no runtime change)
 A **coverage hole** found after the freeze — by the author's own mutation testing, not by a reviewer:
 

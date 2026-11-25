@@ -36,7 +36,7 @@ equal('skill name', skill.name, 'project-dept');
 check('description is routing-grade', typeof skill.description === 'string' && skill.description.length > 60, `len=${skill.description && skill.description.length}`);
 check('body does not carry frontmatter', !skill.content.startsWith('---'), skill.content.slice(0, 20));
 check('body starts with the heading', skill.content.startsWith('# project-dept'), skill.content.slice(0, 24));
-equal('metadata.version from frontmatter', skill.metadata && skill.metadata.version, '1.0.14');
+equal('metadata.version from frontmatter', skill.metadata && skill.metadata.version, '1.3.8');
 check('metadata.tags parsed as a list', Array.isArray(skill.metadata && skill.metadata.tags) && skill.metadata.tags.length === 5, JSON.stringify(skill.metadata && skill.metadata.tags));
 check('path points at the shipped SKILL.md', skill.path === join(SKILL_DIR, 'SKILL.md'), skill.path);
 check('resourceBase is the skill directory', skill.resourceBase.kind === 'directory' && skill.resourceBase.path === SKILL_DIR, JSON.stringify(skill.resourceBase));
@@ -78,6 +78,9 @@ const required = [
   'VERIFICATION.md',
   join('scripts', 'dept_gate.py'),
   join('scripts', 'check_doc.py'),
+  join('scripts', 'run_evals.py'),
+  join('scripts', 'check_review_form.py'),
+  join('scripts', 'check_skill.py'),
   join('static', 'core', 'principles.md'),
   join('static', 'core', 'workflow.md'),
   join('static', 'core', 'output-contract.md'),
@@ -113,7 +116,7 @@ equal('registered name', registered.name, 'project-dept');
 check('registered body is the skill body', typeof registered.content === 'string' && registered.content.startsWith('# project-dept'), String(registered.content).slice(0, 20));
 check('registered description matches the file', registered.description === skill.description);
 check('registered resourceBase survives', registered.resourceBase && registered.resourceBase.path === SKILL_DIR, JSON.stringify(registered.resourceBase));
-check('registered metadata survives', registered.metadata && registered.metadata.version === '1.0.14', JSON.stringify(registered.metadata));
+check('registered metadata survives', registered.metadata && registered.metadata.version === '1.3.8', JSON.stringify(registered.metadata));
 check('apply runs through ctx.effect', effects.length === 1, String(effects.length));
 
 let refused = false;
@@ -130,7 +133,7 @@ check('skill directory separator is native', bound.includes(sep), bound);
 
 // The packaged body must not drift from the SKILL.md the bundle advertises.
 const raw = readFileSync(join(SKILL_DIR, 'SKILL.md'), 'utf8');
-check('shipped SKILL.md still declares version 1.0.14', raw.includes('version: 1.0.14'), 'frontmatter changed');
+check('shipped SKILL.md declares the manifest version', raw.includes('version: 1.3.8'), 'frontmatter changed');
 
 process.stdout.write(`\n${passed}/${passed + failures.length} passed\n`);
 if (failures.length > 0) {

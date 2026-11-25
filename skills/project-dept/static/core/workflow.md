@@ -1,6 +1,6 @@
-# The six-step flow
+# The run flow: Step 0 gate, then Steps 1-6
 
-The Lead runs these six steps. Steps 0 and 1 happen before any work is started by anyone.
+The Lead runs this flow: a gate (Step 0) and then six steps. Steps 0 and 1 happen before any work is started by anyone.
 
 ## Step 0 — Run the gate
 
@@ -85,6 +85,7 @@ Deliver → L1 self-check → L2 independent review → L3 final judgement → c
 - Record the result in the delivery register (date, package, artefact, acceptance verdict, evidence path).
 - Update the board: package status, debts found, frozen list.
 - Fill the direction pre-mortem three questions (see `references/self-skepticism.md`).
+- Reconcile the baseline changelog: every baseline retired or replaced during this package must have a row (old → new or reason, `superseded_by`, downstream re-runs, what stays un-re-run). A rule that lives only in a reference page does not get executed — measured in the v1.3.0 A/B: the arm holding the full text still scored 2/10 on retiring a wrong baseline, because nothing forced an artefact for it.
 - Only then open the next package.
 
 Closing does not mean "verified" if anything was waived — write `未验收（存档）` in the first line of the record when a package is closed for bookkeeping reasons only.

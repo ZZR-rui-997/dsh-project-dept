@@ -99,3 +99,38 @@ Verdict rules:
 - Divergent conclusions are information, not noise: record what each reviewer checked and reconcile explicitly, in writing.
 
 Costly mitigations — only adopt them after a real incident justifies them: script-generated packages, Lead forbidden from writing the brief, two-level sampling. Do not adopt them speculatively; a rule that exists to prevent an imagined accident is a rule that will be resented and eventually bypassed.
+
+## Review cadence and token budget — three tiers (v1.3.0, P-14-1)
+
+Reviewing *every* small task and reviewing *only* at closeout are both wrong. What decides the tier is **blast radius × irreversibility × how much changed this round**. Thresholds are hard numbers; do not eyeball them.
+
+| Tier | When | Who | What they get | Budget |
+|---|---|---|---|---|
+| **A — incremental** (default) | closeout of one deliverable unit (one case, one section, one script change) | 1 reviewer | product + acceptance criteria + **previous review form** + this round's fix log/diff. Must answer: did the fix really land / did it break anything / recompute 3 numbers by hand | **≤3M tokens, ≤10 min** |
+| **B — full panel** (mandatory) | ① every project-section closeout; ② any number that will enter the manuscript or be cited as a baseline by another section; ③ a criterion itself changed | **2 reviewers with different methods** (independent recompute / external authority / devil's advocate — pick two) | everything, **no sampling**, re-read from disk, **no author self-check, no fix log** | **≤30M tokens** |
+| **C — triggered** | ① a baseline was changed ② a conclusion got reversed ③ you just caught a self-check miss ④ same error twice | 1 reviewer, one target | the point plus its direct downstream | **≤8M tokens** |
+| **no review** | middleware: probe scripts, drafts, logs, read-only surveys, formatting tweaks | — | — | 0 |
+
+**Why these cut-offs (our own numbers, not theory)**
+
+1. **L1 self-check alone always misses something.** In one blind review, 8/8 findings were items the author had already ticked in self-check; a second one missed two hard errors (a mesh-arithmetic mix-up and a wrong step count) entirely. Self-check is not a substitute for any tier.
+2. **A full review is expensive**: 13–28M tokens for one full pass (measured: 28.2M/59 min, 26.3M/1 h, 13.6M/24 min); an early small review ≈3.7M.
+3. **Repeating full reviews per unit has diminishing returns**: 13 consecutive full rounds on this very package produced 12 → 26+9 → 26+10 → 6+7 → 5+5 → 2+4 → 1+4 → 4+2 → 3+2 → 3+3 → 2+2 → 2+3 → **0** findings, and the last rounds caught only documentation consistency. Repeating full reviews at unit frequency is pure burn.
+4. **Incremental reviews are sufficient** for unit-level changes: given only "v2 product + previous review form + fix log", one review still caught 8 real issues (including "micro-rise described as monotone decline" and a percentage range that was actually 3.5–10.5%).
+
+**Four engineering levers (cheaper than reviewing less)**
+
+1. **Review the delta**, not everything: require the three answers above. Accumulated drift is covered by tier B.
+2. **Script the criteria**: give the reviewer a runnable checker (`dept_gate.py`, `check_doc.py`, `check_skill.py`, `run_evals.py`). They run the script for the mechanical part, then hand-compute 3 numbers. This saves exploration tokens, not verification.
+3. **Tier the models**: mechanical consistency (paths, versions, existence, formatting) on a cheap model; number recomputation and counter-examples on a strong one. **Never the reverse** — a cheap model checking numbers produces false green.
+4. **Budget gate + circuit breaker**: ≤30M per section (tier A cumulative + one tier B); any single review >10M must be justified in the report; over budget ⇒ drop to two-stage sampling and *write "degraded sampling" in the acceptance note*.
+
+**Expected cost for a 6-unit section**: old habit (full review each unit) ≈6 × 20M = 120M; this policy ≈5 × 2.5M + 25M ≈ **37M (−70%)**, while closeouts still get a full pass and reversals/baseline changes still get tier C.
+
+**Honest limits**
+
+- Incremental review cannot see cumulative drift (ten locally-correct edits can contradict each other) ⇒ tier B must genuinely re-read everything from disk and must not read the fix log.
+- Token savings never remove the "recompute 3 numbers by hand" step. That is the floor.
+- Not applicable when: ① the product ships externally / is submitted ⇒ tier B plus external authority; ② the criterion just changed ⇒ tier C; ③ the first time a criterion goes live, expect a one-off expensive burst (13 rounds here) — that is a setup cost, not a routine.
+- Multi-agent: ask **"can this be done by one agent sequentially?"** before asking "how many to spawn". Anthropic measured orchestrator-worker ≈+90.2% over single-agent but **15× tokens** (token use explains ~80% of variance), and only for high-value parallel work; Cognition reports that splitting loses the implicit decisions carried by actions. Pass paths, not summaries.
+- Independence comes from **different evidence**, not more judges: same model + same material + more debate does not improve groundedness. The second tier-B reviewer must use a different method, not re-read the same way.

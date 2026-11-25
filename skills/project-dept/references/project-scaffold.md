@@ -82,10 +82,16 @@ One file per role, same eight sections every time:
 
 List every item currently used as a baseline and give it a class and a locator. Expect to find several `[Own]` items masquerading as `[Origin]` — that is the point of doing it early.
 
-## 6. Wire the two scripts
+## 6. Wire the quality tools
 
-- **gate** — runs before a package opens and before every report to the user;
-- **checker** — runs before a document artefact is handed over.
+Wire every script listed under `quality_tools` in `manifest.yaml` (do not assume a fixed number — the list grows):
+
+- **gate** (`dept_gate.py`) — runs before a package opens and before every report to the user;
+- **checker** (`check_doc.py`) — runs before a document artefact is handed over;
+- **package self-lint** (`check_skill.py`) — runs after you edit the skill package itself;
+- **eval runner** (`run_evals.py`) — `static` schema check always; `judge`/`tally` for blind A/B scoring;
+  `grade` is deprecated (12/12 false FAILs on real answers) and must not be used as an acceptance
+  criterion, and `compare` (built on grade) is a direction hint only.
 
 Copy them from the skill's `scripts/` directory into the project's ledger `bin/`, or keep them in the skill and call them with the project config path. Do **not** edit the copy: a per-project fork of a generic checker means the audit is now measuring something different from what the skill describes.
 
@@ -93,7 +99,7 @@ Verify the wiring by running each once and confirming the exit codes behave as d
 
 ## 7. First run
 
-Open a small, genuinely useful package as a smoke test, run the full six steps, and close it. If step 6 (archive) feels like paperwork, shorten the record template now rather than skipping it later.
+Open a small, genuinely useful package as a smoke test, run the full flow (Step 0 gate, then Steps 1-6), and close it. If step 6 (archive) feels like paperwork, shorten the record template now rather than skipping it later.
 
 ## Migration from an existing project
 

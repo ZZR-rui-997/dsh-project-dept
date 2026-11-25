@@ -1,8 +1,8 @@
-﻿name: project-dept
-version: 1.0.14
+name: project-dept
+version: 1.3.8
 description: >
   Declarative routing for a contractor-style (承包制) project department. The two axes change the
-  audit checklist and how strict the acceptance has to be; the six-step flow and
+  audit checklist and how strict the acceptance has to be; the Step 0 gate plus Steps 1-6 and
   the three non-negotiables stay stable across domains.
 
 always_load:
@@ -59,6 +59,11 @@ references:
     - condition: standing this department up in a new project
       path: references/project-scaffold.md
 
+baseline_changelog_key: >-
+  Optional dept.config.json key naming the project's baseline changelog file. When the
+  baseline list carries [已作废] / [superseded] rows, dept_gate.py requires that file to
+  exist and be non-empty (check 7b) - a retired baseline is a deliverable-level act,
+  because a rule with no artefact attached does not get executed.
 quality_tools:
   gate_script: scripts/dept_gate.py
   gate_use_when: before opening any work package, and before every progress report to the user
@@ -66,6 +71,27 @@ quality_tools:
   audit_script: scripts/check_doc.py
   audit_use_when: before closing any work package that hands over a document artefact
   audit_output: stdout report plus exit code (add --json for machine-readable)
+  skill_lint_script: scripts/check_skill.py
+  skill_lint_use_when: after any edit to this skill package itself, before calling the package deliverable
+  skill_lint_output: >-
+    eight checks; stdout report plus exit code (0 clean / 1 defects / 2 not run);
+    --json for machine-readable.
+    Budget rule: SKILL.md > 3000 tokens is a defect (exit 1); SKILL.md + always_load > 9000 is a warning.
+  eval_runner: scripts/run_evals.py
+  eval_runner_use_when: when routing or review behaviour of this skill changes, or when doing a with/without comparison
+  eval_runner_output: >-
+    static validates the eval schema and prints a judge brief per case; judge anonymises
+    <case>-<arm>-r<rep>.txt answer files into a blind-judge sheet plus a private arm map and a
+    paste-ready score template; tally turns filled scores into paired statistics with a Wilson 95%
+    interval; grade (verbatim keyword scoring) is DEPRECATED — 12/12 false FAILs on real answers,
+    never an acceptance criterion (backlog P-15-8); compare is built on grade and is a direction hint only.
+  review_form_script: scripts/check_review_form.py
+  review_form_use_when: on every incoming review form, before the Lead reads it
+  review_form_output: >-
+    seven structural rules (two anchor snapshots, one legal verdict, verdict vs must-fix consistency,
+    independence, a mechanical evidence table, 8 banned evidence phrases, at least one real problem);
+    exit 0 compliant / 1 defects / 2 unreadable. Proves traces, not behaviour: it cannot tell whether
+    the reviewer really ran the snapshot twice, so the Lead still has to read the form.
   config_file: >-
     dept.config.json — resolved by walking up from the working directory, never hardcoded.
     If the working directory itself contains the ledger dir but the config was found in an

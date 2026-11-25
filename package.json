@@ -1,6 +1,6 @@
 {
   "name": "dsh-project-dept",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Acceptance-first project workflow for DeepSeek Harness: one board at a time, an opening gate, independent blind review, baseline self-audit, and a closed delivery loop.",
   "type": "module",
   "license": "MIT",

@@ -1,7 +1,7 @@
 {
   "name": "dsh-project-dept",
-  "version": "1.0.3",
-  "description": "Acceptance-first workflow skills for DSH: project-dept runs one complex piece of work as a single reviewable board (gate, three-layer acceptance, independent review); loop-ops runs the bounded review loop that fixes a deliverable until the must-fix list is empty.",
+  "version": "1.0.4",
+  "description": "Acceptance-first workflow skills for DSH: project-dept runs one board at a time through gates and three-layer review, loop-ops automates the review-and-revise cycle with hard round limits.",
   "type": "module",
   "license": "MIT",
   "author": "ZZR-rui-997",

@@ -2,7 +2,7 @@
 name: project-dept
 description: 承包制智能体项目部——把一次复杂工作当成一个可验收的「板块」，串行推进；用开工闸门、三层验收 + 独立盲审、基准自审、方向复盘保证交付物可信。适用任何需要多人/多步协作且交付物要经得起检验的场合；用户说"按项目部开工 / 开一个板块 / 组团队做这块 / 检查要独立"时加载。
 metadata:
-  version: 1.3.8
+  version: 1.3.10
   tags: [workflow, acceptance, blind-review, governance, provenance]
 ---
 

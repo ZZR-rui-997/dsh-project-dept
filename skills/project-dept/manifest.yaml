@@ -1,5 +1,5 @@
 name: project-dept
-version: 1.3.8
+version: 1.3.10
 description: >
   Declarative routing for a contractor-style (承包制) project department. The two axes change the
   audit checklist and how strict the acceptance has to be; the Step 0 gate plus Steps 1-6 and
@@ -86,6 +86,9 @@ quality_tools:
     interval; grade (verbatim keyword scoring) is DEPRECATED — 12/12 false FAILs on real answers,
     never an acceptance criterion (backlog P-15-8); compare is built on grade and is a direction hint only.
   review_form_script: scripts/check_review_form.py
+  scaffold_script: scripts/init_project.py
+  scaffold_use_when: a project has no _team/ ledger yet; run once at the project root, then run the gate
+
   review_form_use_when: on every incoming review form, before the Lead reads it
   review_form_output: >-
     seven structural rules (two anchor snapshots, one legal verdict, verdict vs must-fix consistency,

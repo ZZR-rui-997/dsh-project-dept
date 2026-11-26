@@ -54,6 +54,7 @@ scripts/
   check_skill.py             package self-lint (8 checks: frontmatter / versions / declared assets / forbidden names / budget / evals / completeness / manifest syntax incl. duplicate keys)
   run_evals.py               eval runner (static schema check; judge builds blind-judge briefs; tally for paired stats; grade deprecated)
   check_review_form.py       review-form linter (7 rules: snapshots / verdict / must-fix consistency / independence / evidence / banned phrases / a real problem)
+  init_project.py            one-command scaffolding for a new project (dept.config.json + `_team/` ledger; gate exits 0 with --open-package, otherwise 2 with D0 pending)
 ```
 
 ## Quality tools (the authoritative list is `quality_tools` in `manifest.yaml` - do not count them here)
@@ -158,8 +159,22 @@ relative to themselves or to the config, and hard-code no machine paths.
 
 See `references/project-scaffold.md`: create the `_team/` ledger, write `dept.config.json`,
 write role cards, seed the baseline register, wire the quality tools, run a smoke package.
-Moving to another project means repeating those seven steps; moving to another machine means
-copying `~/.dsh/skills/`.
+Moving to another machine means copying `~/.dsh/skills/`.
+
+**One command stands a new project up** (no more copying ledgers from another project):
+
+```bash
+python scripts/init_project.py --root <project-root> --desc "<one line>"
+python scripts/init_project.py --root <project-root> --open-package "package 1: <goal>"
+```
+
+It writes `dept.config.json` plus `_team/` (charter, flow, board, register, baseline list, baseline
+changelog, three generic role cards, task/review templates, `bin/` note, project-level `AGENTS.md`).
+It is idempotent: **existing files are never overwritten** unless `--force` is passed; also
+`--dry-run`, `--json`, `--roles`. Without `--open-package` the board says "no package open yet"
+and carries a single open debt `D0`, so the gate exits **2** (needs a decision) - honest: no package,
+no start. With `--open-package` the gate exits 0 with zero warnings.
+
 
 ## Boundaries
 
@@ -193,6 +208,48 @@ requires the Lead's L3 probe (and human sign-off for critical).
 See `references/blind-review.md` § Panel review.
 
 ## Changelog
+
+### 1.3.10 (2026-11-26: the mandatory fixes from the v1.3.9 tier-A blind audit)
+
+**Why**: v1.3.9 passed the tier-A incremental audit (12/12 scenarios, 3/3 mutations caught, 184 tests), but the
+auditor found two claim-vs-reality mismatches and two suggestions - all text and edge cases, no mechanism change.
+
+1. **P1 (important)**: the structure tree said `init_project.py` "gate passes right after"; in reality the default
+   run leaves one open debt `D0`, so the gate exits **2** - only `--open-package` gives exit 0. Text corrected.
+2. **P2**: the generated `dept.config.json` hard-coded this machine's venv path in `environment.notes`, directly
+   contradicting "generic hints only / never hardcode local paths" (and there was no way to override it). Now three
+   generic notes, plus a repeatable `--env-note TEXT` for project-specific entries.
+3. **P3**: `references/project-scaffold.md` allowed copying the quality scripts into a project `bin/`, which
+   conflicted with `bin/README` ("pointer, not a copy"). Reconciled: call them from the skill by default; copying is
+   allowed only as an **unmodified snapshot** for offline reproducibility, with its sha256 recorded and re-synced
+   when the skill version changes.
+4. **P4**: the 1.3.9 entry omitted `基准清单.md` from the ledger list; added.
+5. Version -> **1.3.10**; tests **184 -> 186** (default notes contain no machine path; `--env-note` lands in config).
+   Mutation: putting the hard-coded path back makes the new test fail.
+
+**Honest limitations**: (1) still skeletons - domain role cards must be rewritten; (2) `--env-note` appends without
+deduplicating, so passing the same text twice yields two entries; (3) token estimates still not calibrated against a
+real tokenizer (see the 1.2.x entries).
+
+### 1.3.9 (2026-11-26: scaffolding a new project is now automatic)
+
+**Why**: the discipline worked, but moving to a new project meant hand-copying the ledger; without
+it the gate can only return `3` (not run), so "works globally" stopped at the installation layer.
+
+1. **New `scripts/init_project.py`** (standard library only): writes `dept.config.json` + the four
+   ledger files (including `基准清单.md`) + baseline changelog + generic role cards (lead/audit/reviewer) + task/review
+   templates + `bin/` note + project `AGENTS.md`. Idempotent (existing files skipped unless
+   `--force`), plus `--dry-run`, `--json`, `--roles`, `--open-package`.
+2. **Gate agreement is a test, not a claim**: `tests/test_init_project.py` (11 cases) runs the real
+   CLI and then the real `dept_gate.py`: open package => exit 0 with zero warnings; no package =>
+   exit 2 naming `D0`; one open debt => exit 2 naming `D1`; re-run is idempotent; the generated
+   review sheet must still be rejected by `check_review_form.py` (so the template is not vacuously valid).
+3. Version -> **1.3.9**; tests **173 -> 184**.
+
+**Honest limitations**: (1) these are skeletons - **domain role cards must be rewritten by someone who
+knows the domain traps**; (2) `environment.notes` carries generic hints only; (3) no cross-window
+inbox is created (single-window projects do not need one); (4) the entry-token budget is unchanged
+(`init_project.py` is not in the always-load set).
 
 ### 1.3.8 (2026-11-25, one must-fix from the v1.3.7 tier-A review)
 
@@ -475,7 +532,8 @@ only holds in one place.
 2. **The structure tree listed only 2 scripts**: `scripts/` trees now include `check_skill.py` and `run_evals.py`.
 3. **Token numbers had two bases (off by 1)**: the documented command used `encoding='utf-8'` while
    `check_skill.read_text()` uses `utf-8-sig`; the BOM made them differ (1732 vs 1731). The command now says
-   `utf-8-sig`, and the current numbers are stated as **1,731** / per-run **6,041**, both taken from `check_skill.py`.
+    `utf-8-sig`; the numbers measured then were **1,731** / per-run **6,041** (**they drift as the text
+    changes - always take them from `check_skill.py`**, never copy them from here).
 
 **Process defect (recorded honestly)**: the author edited the package **during** this review (fixing the reproducible
 numbers and rebuilding the snapshot), and the reviewer called it out. Lesson: once a package is frozen for review it
@@ -491,7 +549,7 @@ This release does not just reword the docs:
    whenever the declared script count is not 2. That check is a **literal** scan, so the docs must not contain those phrases
    either - including when explaining the rule (paraphrase if you need to refer to it).
 2. **Unreproducible token numbers (R1-F2 / R2-1)**: "4,563 -> 1,600-1,700" replaced by the package estimator's reproducible
-   **4,935 -> 1,718** (the value right after the v1.2.0 trim; after the v1.2.2 wording tweaks it is **1,731**), with the
+   **4,935 -> 1,718** (the value right after the v1.2.0 trim; **1,731 measured at the time** after the v1.2.2 wording tweaks - it drifts with the text and version string, so always take the current value from `check_skill.py`), with the
    command to reproduce it.
 3. **Budget limit was dodgeable (R2-2)**: `CJK_RANGES` missed kana (0x3040-30FF), hangul (0xAC00-D7A3), emoji
    (0x1F300-1FAFF) and extension B (0x20000-2A6DF); padding with those was estimated at 3.5 chars/token and slipped under 3,000.
@@ -519,7 +577,7 @@ and it crowds out the context budget available for real work: 64% of the entry b
    (pointing at README / README_EN) plus one hard rule: do not write change details back into the entry body.
    History is not an execution input; the entry keeps routing and non-negotiables only.
    **Measured (v1.2.0, at the time)**: `SKILL.md` 4,935 -> **1,718 tokens** (same `estimate_tokens()` basis;
-   after the v1.2.2 tweaks it is **1,731** - take the number from the command). Reproduce with
+   after the v1.2.2 tweaks it measured **1,731**; the current value always comes from the command). Reproduce with
    `python -c "import sys;sys.path.insert(0,'scripts');import check_skill as c;print(c.estimate_tokens(open('SKILL.md',encoding='utf-8-sig').read()))"` -
    **use `utf-8-sig`**, the same basis as `check_skill.read_text()`; with plain `utf-8` the BOM makes it differ by 1),
    `SKILL.md + always_load` ~**4,664 tokens**.

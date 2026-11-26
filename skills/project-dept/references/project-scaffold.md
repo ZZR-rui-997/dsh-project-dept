@@ -25,7 +25,8 @@ _team/
   基准清单.md             baseline register: every item used as a baseline, with class and locator
   岗位/                   role cards, one per role
   templates/              task sheet, review sheet
-  bin/                    gate script, checker script (copies of the skill's scripts, or thin wrappers)
+   bin/                    pointer note for the quality tools (default: call them from the skill;
+                         a copy is allowed only as an unmodified snapshot for offline reproducibility)
   out/<role>/              produced artefacts, one subdirectory per role
   review/blind/<task>/    blind packages and review sheets
 ```
@@ -93,7 +94,7 @@ Wire every script listed under `quality_tools` in `manifest.yaml` (do not assume
   `grade` is deprecated (12/12 false FAILs on real answers) and must not be used as an acceptance
   criterion, and `compare` (built on grade) is a direction hint only.
 
-Copy them from the skill's `scripts/` directory into the project's ledger `bin/`, or keep them in the skill and call them with the project config path. Do **not** edit the copy: a per-project fork of a generic checker means the audit is now measuring something different from what the skill describes.
+Prefer calling them from the skill's `scripts/` directory with the project config path (`--root` / `--config`); `bin/` in a fresh scaffold is a **pointer note, not a copy**. Copying *is* allowed when a package must be reproducible offline — but then it must be an **unmodified snapshot**, its sha256 must be recorded in the ledger, and it must be re-synced when the skill version changes. Do **not** edit the copy: a per-project fork of a generic checker means the audit is now measuring something different from what the skill describes.
 
 Verify the wiring by running each once and confirming the exit codes behave as documented — in particular that the gate exits `1` when the ledger is structurally broken, and that the checker can be made to fail.
 

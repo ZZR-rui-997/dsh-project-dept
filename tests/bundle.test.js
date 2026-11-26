@@ -36,7 +36,7 @@ equal('skill name', skill.name, 'project-dept');
 check('description is routing-grade', typeof skill.description === 'string' && skill.description.length > 60, `len=${skill.description && skill.description.length}`);
 check('body does not carry frontmatter', !skill.content.startsWith('---'), skill.content.slice(0, 20));
 check('body starts with the heading', skill.content.startsWith('# project-dept'), skill.content.slice(0, 24));
-equal('metadata.version from frontmatter', skill.metadata && skill.metadata.version, '1.3.8');
+equal('metadata.version from frontmatter', skill.metadata && skill.metadata.version, '1.3.10');
 check('metadata.tags parsed as a list', Array.isArray(skill.metadata && skill.metadata.tags) && skill.metadata.tags.length === 5, JSON.stringify(skill.metadata && skill.metadata.tags));
 check('path points at the shipped SKILL.md', skill.path === join(SKILL_DIR, 'SKILL.md'), skill.path);
 check('resourceBase is the skill directory', skill.resourceBase.kind === 'directory' && skill.resourceBase.path === SKILL_DIR, JSON.stringify(skill.resourceBase));
@@ -81,6 +81,8 @@ const required = [
   join('scripts', 'run_evals.py'),
   join('scripts', 'check_review_form.py'),
   join('scripts', 'check_skill.py'),
+  join('scripts', 'init_project.py'),
+  join('references', 'project-scaffold.md'),
   join('static', 'core', 'principles.md'),
   join('static', 'core', 'workflow.md'),
   join('static', 'core', 'output-contract.md'),
@@ -128,7 +130,7 @@ for (const name of declared) {
   check(`files declared by "${name}" exist in the bundle`, missingOwn.length === 0, `missing=${missingOwn.join(', ')}`);
 }
 const projectDept = registrations.find((item) => item.name === 'project-dept') ?? {};
-equal('project-dept metadata version', projectDept.metadata && projectDept.metadata.version, '1.3.8');
+equal('project-dept metadata version', projectDept.metadata && projectDept.metadata.version, '1.3.10');
 const loopOps = registrations.find((item) => item.name === 'loop-ops') ?? {};
 equal('loop-ops metadata version', loopOps.metadata && loopOps.metadata.version, '1.0.0');
 check('loop-ops declares its dependency on project-dept', String(loopOps.metadata && loopOps.metadata.requires) === 'project-dept', JSON.stringify(loopOps.metadata));
@@ -150,7 +152,7 @@ check('bundle ships the loop-ops SKILL.md', existsSync(join(ROOT, 'skills', 'loo
 
 // The packaged body must not drift from the SKILL.md the bundle advertises.
 const raw = readFileSync(join(SKILL_DIR, 'SKILL.md'), 'utf8');
-check('shipped SKILL.md declares the manifest version', raw.includes('version: 1.3.8'), 'frontmatter changed');
+check('shipped SKILL.md declares the manifest version', raw.includes('version: 1.3.10'), 'frontmatter changed');
 
 process.stdout.write(`\n${passed}/${passed + failures.length} passed\n`);
 if (failures.length > 0) {
